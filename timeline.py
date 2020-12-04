@@ -99,10 +99,10 @@ def getAllTimelines():
         return make_response("ERROR: NO CONTENT", 204)
     if len(tweets) <= 25:
         for tweet in tweets:
-            account.append({'Tweet_ID': tweet[0], 'Username': tweet[1], 'Tweet': tweet[2]})
+            account.append({'Tweet_ID': tweet[0], 'Username': tweet[1], 'Tweet': tweet[2], 'Timeline': tweet[3]})
     else:
         for tweet in tweets[:25]:
-            account.append({'Tweet_ID': tweet[0], 'Username': tweet[1], 'Tweet': tweet[2]})
+            account.append({'Tweet_ID': tweet[0], 'Username': tweet[1], 'Tweet': tweet[2], 'Timeline': tweet[3]})
     conn.close()
     return make_response(jsonify(account), 200) 
 
@@ -125,10 +125,10 @@ def getHomeTimeline(username):
             return make_response("ERROR: NO CONTENT", 204)
         if len(tweets) <= 25:
             for tweet in tweets:
-                account.append({'Tweet_ID': tweet[0], 'Username': tweet[1], 'Tweet': tweet[2]})
+                account.append({'Tweet_ID': tweet[0], 'Username': tweet[1], 'Tweet': tweet[2], 'Timeline': tweet[3]})
         else:
             for tweet in tweets[:25]:
-                account.append({'Tweet_ID': tweet[0], 'Username': tweet[1], 'Tweet': tweet[2]})
+                account.append({'Tweet_ID': tweet[0], 'Username': tweet[1], 'Tweet': tweet[2], 'Timeline': tweet[3]})
     conn.close()
     return make_response(jsonify(account), 200) 
     
