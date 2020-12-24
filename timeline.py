@@ -1,11 +1,20 @@
 import json, sqlite3, sys
-from flask import Flask, jsonify, request, make_response
+from flask import Flask, jsonify, request, make_response, Response, json, Request, render_template_string
 from flask.cli import AppGroup
 from flask_basicauth import BasicAuth
-from datetime import datetime
+from datetime import datetime, date, timedelta
+from flask_caching import Cache
+
+config = {
+    "DEBUG": True,          # some Flask specific configs
+    "CACHE_TYPE": "simple", # Flask-Caching related configs
+    "CACHE_DEFAULT_TIMEOUT": 120
+}
 
 app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
+app.config.from_mapping(config)
+cache = Cache(app)
 basic_auth = BasicAuth(app)
 databaseName = 'database.db'
 
@@ -27,7 +36,6 @@ def connectDB(dbName):
     # Connects to database and returns the connection, if database is offline, program exits
     try:
         conn = sqlite3.connect(dbName)
-        print("SUCCESS: CONNECTED TO {}".format(str(dbName)))
         return conn
     except:
         print("ERROR: {} OFFLINE".format(str(dbName)))
@@ -65,6 +73,7 @@ def followExist(cur, follower, followed):
     if name and foll:
         return True
 
+
 # HELPER FUNCTIONS />---------------------------------------------------
 
 @app.route('/timeline/<username>', methods=['GET'])
@@ -85,13 +94,28 @@ def getUserTimeline(username):
         for tweet in tweets[:25]:
             account.append({'Tweet_ID': tweet[0], 'Username': tweet[1], 'Tweet': tweet[2], 'Timeline': tweet[3]})
     conn.close()
-    return make_response(jsonify(account), 200) 
+    return make_response(jsonify(account), 200)
 
 @app.route('/timeline/all', methods=['GET'])
+    #if request.headers.get('Last-Modified'):
+    #    if (datetime.datetime.utcnow() - datetime.timedelta(minutes = 5)) > request.headers.get('Last-Modified'):
+    #        return make_response('Not Modified', 304)
+    #else:
+    #    response = make_response(str(datetime.datetime.utcnow()))
+    #    response.headers['Last-Modified'] ='*'
+    #    return response
+
 def getAllTimelines():
+    app.logger.debug('getAllTimelines()')
     conn = connectDB(databaseName)
     cur = conn.cursor()
     account = []
+    if 'If-Modified-Since' in request.headers:
+        date_time_str = request.headers['If-Modified-Since']
+        date_time_obj = datetime.strptime(date_time_str, '%Y-%m-%d %H:%M:%S.%f')
+        print("Time:", (datetime.now() - date_time_obj).total_seconds(), "seconds")
+        if((datetime.now() - date_time_obj).total_seconds() < 300):
+            return make_response("Not Modified", 304) 
     cur.execute("SELECT * FROM Tweets ORDER BY tweet_id DESC")
     tweets = cur.fetchall()
     if tweets == []:
@@ -103,11 +127,14 @@ def getAllTimelines():
     else:
         for tweet in tweets[:25]:
             account.append({'Tweet_ID': tweet[0], 'Username': tweet[1], 'Tweet': tweet[2], 'Timeline': tweet[3]})
+    response = jsonify(account)
+    response.headers['Last-Modified'] = datetime.now()
     conn.close()
-    return make_response(jsonify(account), 200) 
+    return make_response(response, 200) 
 
 @app.route('/timeline/home/<username>', methods=['GET'])
 def getHomeTimeline(username):
+    app.logger.debug("getHomeTimeline('%s')", username)
     conn = connectDB(databaseName)
     cur = conn.cursor()
     account = []
@@ -129,8 +156,12 @@ def getHomeTimeline(username):
         else:
             for tweet in tweets[:25]:
                 account.append({'Tweet_ID': tweet[0], 'Username': tweet[1], 'Tweet': tweet[2], 'Timeline': tweet[3]})
+        cache.set('username', account)
+    bar = cache.get('username')
     conn.close()
-    return make_response(jsonify(account), 200) 
+    return render_template_string(
+        "<html><body>Username Cache Follow Timeline: {{bar}}</body></html>", bar=bar
+    )
     
 @app.route('/timeline/post', methods=['POST'])
 def postTweet():

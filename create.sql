@@ -45,7 +45,9 @@ VALUES
 ("Brandon2", "Brandon1"),
 ("Brandon2", "Brandon3"),
 ("Brandon2", "Brandon4"),
-("Brandon3", "Brandon2");
+("Brandon3", "Brandon1"),
+("Brandon3", "Brandon2"),
+("Brandon4", "Brandon1");
 
 INSERT INTO Tweets (username, textEntry)
 VALUES
