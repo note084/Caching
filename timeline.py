@@ -17,6 +17,7 @@ app.config.from_mapping(config)
 cache = Cache(app)
 basic_auth = BasicAuth(app)
 databaseName = 'database.db'
+obj = []
 
 # < HELPER FUNCTIONS --------------------------------------------------
 @app.cli.command('init')
@@ -42,10 +43,10 @@ def connectDB(dbName):
         sys.exit()
 
 def userExist(cur, username, email):
-    #checking if UserAccount Exists
+    #checking if Userobjount Exists
     if username == '' or email == '':
         return False
-    cur.execute("SELECT * FROM UserAccounts WHERE username='{}'".format(str(username)))
+    cur.execute("SELECT * FROM Userobjounts WHERE username='{}'".format(str(username)))
     user = cur.fetchone()
     if user == None:
         return False
@@ -58,13 +59,13 @@ def followExist(cur, follower, followed):
     foll = False
     if follower == '' or followed == '' or follower == followed:
         return False
-    cur.execute("SELECT * FROM UserAccounts WHERE username='{}'".format(str(follower)))
+    cur.execute("SELECT * FROM Userobjounts WHERE username='{}'".format(str(follower)))
     user = cur.fetchone()
     if user == None:
         return False
     elif user[0] == str(follower):
         name = True
-    cur.execute("SELECT * FROM UserAccounts WHERE username='{}'".format(str(followed)))
+    cur.execute("SELECT * FROM Userobjounts WHERE username='{}'".format(str(followed)))
     user = cur.fetchone()
     if user == None:
         return False
@@ -81,7 +82,7 @@ def getUserTimeline(username):
     #returns user's tweets
     conn = connectDB(databaseName)
     cur = conn.cursor()
-    account = []
+    objount = []
     cur.execute("SELECT * FROM Tweets WHERE username='{}' ORDER BY tweet_id DESC".format(str(username)))
     tweets = cur.fetchall()
     if tweets == []:
@@ -89,12 +90,12 @@ def getUserTimeline(username):
         return make_response("ERROR: NO CONTENT", 204)
     if len(tweets) <= 25:
         for tweet in tweets:
-            account.append({'Tweet_ID': tweet[0], 'Username': tweet[1], 'Tweet': tweet[2], 'Timeline': tweet[3]})
+            objount.append({'Tweet_ID': tweet[0], 'Username': tweet[1], 'Tweet': tweet[2], 'Timeline': tweet[3]})
     else:
         for tweet in tweets[:25]:
-            account.append({'Tweet_ID': tweet[0], 'Username': tweet[1], 'Tweet': tweet[2], 'Timeline': tweet[3]})
+            objount.append({'Tweet_ID': tweet[0], 'Username': tweet[1], 'Tweet': tweet[2], 'Timeline': tweet[3]})
     conn.close()
-    return make_response(jsonify(account), 200)
+    return make_response(jsonify(objount), 200)
 
 @app.route('/timeline/all', methods=['GET'])
     #if request.headers.get('Last-Modified'):
@@ -109,7 +110,7 @@ def getAllTimelines():
     app.logger.debug('getAllTimelines()')
     conn = connectDB(databaseName)
     cur = conn.cursor()
-    account = []
+    objount = []
     if 'If-Modified-Since' in request.headers:
         date_time_str = request.headers['If-Modified-Since']
         date_time_obj = datetime.strptime(date_time_str, '%Y-%m-%d %H:%M:%S.%f')
@@ -123,60 +124,71 @@ def getAllTimelines():
         return make_response("ERROR: NO CONTENT", 204)
     if len(tweets) <= 25:
         for tweet in tweets:
-            account.append({'Tweet_ID': tweet[0], 'Username': tweet[1], 'Tweet': tweet[2], 'Timeline': tweet[3]})
+            objount.append({'Tweet_ID': tweet[0], 'Username': tweet[1], 'Tweet': tweet[2], 'Timeline': tweet[3]})
     else:
         for tweet in tweets[:25]:
-            account.append({'Tweet_ID': tweet[0], 'Username': tweet[1], 'Tweet': tweet[2], 'Timeline': tweet[3]})
-    response = jsonify(account)
+            objount.append({'Tweet_ID': tweet[0], 'Username': tweet[1], 'Tweet': tweet[2], 'Timeline': tweet[3]})
+    response = jsonify(objount)
     response.headers['Last-Modified'] = datetime.now()
     conn.close()
     return make_response(response, 200) 
 
 @app.route('/timeline/home/<username>', methods=['GET'])
 def getHomeTimeline(username):
-    app.logger.debug("getHomeTimeline('%s')", username)
+
     conn = connectDB(databaseName)
     cur = conn.cursor()
-    account = []
-#    cur.execute("SELECT * FROM Tweets JOIN UserFollows ON(Tweets.username = UserFollows.followed) WHERE Tweets.username='{}'".format(str(username)))
     cur.execute("SELECT follower FROM UserFollows WHERE followed='{}'".format(str(username)))
     followed = cur.fetchall()
-    if followed == []:
-        conn.close()
-        return make_response(jsonify(followed), 200)
-    for i in followed:
-        cur.execute("SELECT * FROM Tweets WHERE username='{}'".format(str(i[0])))
-        tweets = cur.fetchall()
-        if tweets == []:
+    temp = []
+#    cur.execute("SELECT * FROM Tweets JOIN UserFollows ON(Tweets.username = UserFollows.followed) WHERE Tweets.username='{}'".format(str(username)))
+    if obj == None or obj == []:
+        app.logger.debug("Caching from database")
+        if followed == []:
             conn.close()
-            return make_response("ERROR: NO CONTENT", 204)
-        if len(tweets) <= 25:
-            for tweet in tweets:
-                account.append({'Tweet_ID': tweet[0], 'Username': tweet[1], 'Tweet': tweet[2], 'Timeline': tweet[3]})
-        else:
-            for tweet in tweets[:25]:
-                account.append({'Tweet_ID': tweet[0], 'Username': tweet[1], 'Tweet': tweet[2], 'Timeline': tweet[3]})
-        cache.set('username', account)
+            return make_response(jsonify(followed), 200)
+        for i in followed:
+            cur.execute("SELECT * FROM Tweets WHERE username='{}'".format(str(i[0])))
+            tweets = cur.fetchall()
+            if tweets == []:
+                conn.close()
+                return make_response("ERROR: NO CONTENT", 204)
+            if len(tweets) <= 25:
+                for tweet in tweets:
+                    obj.append({'Tweet_ID': tweet[0], 'Username': tweet[1], 'Tweet': tweet[2], 'Timeline': tweet[3]})
+            else:
+                for tweet in tweets[:25]:
+                    obj.append({'Tweet_ID': tweet[0], 'Username': tweet[1], 'Tweet': tweet[2], 'Timeline': tweet[3]})
+            cache.set('username', obj)
+    else:
+        app.logger.debug("Caching from object")
+        app.logger.debug("Object Cache: %s", obj)
+        if followed == []:
+            conn.close()
+            return make_response(jsonify(followed), 200)
+        for i in followed:
+            for n in obj:
+                if format(str(i[0])) == n['Username']:
+                    temp.append(n)
+            cache.set('username', temp)
     bar = cache.get('username')
     conn.close()
-    return render_template_string(
-        "<html><body>Username Cache Follow Timeline: {{bar}}</body></html>", bar=bar
-    )
+    return jsonify(bar)
     
 @app.route('/timeline/post', methods=['POST'])
 def postTweet():
     conn = connectDB(databaseName)
     cur = conn.cursor()
-    account = request.get_json(force=True)
-    cur.execute("SELECT * FROM UserAccounts WHERE username='{}'".format(str(account['username'])))
+    objount = request.get_json(force=True)
+    cur.execute("SELECT * FROM Userobjounts WHERE username='{}'".format(str(objount['username'])))
     user = cur.fetchone()
     if user == None:
         return make_response("ERROR: USER NAME DOES NOT EXIST", 409)
     else:
-        cur.execute("INSERT INTO Tweets(username, textEntry) VALUES (?,?)", (str(account['username']), str(account['text'])))
+        cur.execute("INSERT INTO Tweets(username, textEntry) VALUES (?,?)", (str(objount['username']), str(objount['text'])))
         conn.commit()
         conn.close()
-        return make_response("SUCCESS: TWEET POSTED", 201, {"location" : '/timeline/{}'.format(str(account['username']))})
+        return make_response("SUCCESS: TWEET POSTED", 201, {"location" : '/timeline/{}'.format(str(objount['username']))})
     conn.close()
     
 
